@@ -1,37 +1,67 @@
-[neo4j]
-uri = neo4j+s://xxxxxxxx.databases.neo4j.io
-username = neo4j
-password = your-password
-connection_pool_size = 100
-connection_timeout = 30.0
-connection_acquisition_timeout = 30.0
-max_transaction_retry_time = 30.0
-max_connection_lifetime = 300.0
-liveness_check_timeout = 30.0
-keep_alive = true
+# LightRAG Configuration Example for PRD Functional Point Extraction
+# Copy this file to config.ini and modify as needed
 
-[mongodb]
-uri = mongodb+srv://name:password@your-cluster-address
-database = lightrag
+[LLM]
+# LLM model configuration
+model_name = gpt-3.5-turbo
+api_key = your_api_key_here
+api_base = https://api.openai.com/v1
 
-[redis]
-uri=redis://localhost:6379/1
+[ENTITY_EXTRACTION]
+# Entity extraction configuration for PRD documents with strict hierarchy constraints
+# Hierarchical entity types: 主功能 → 父功能点 → 子功能点 → 业务条件
+entity_types = 主功能,父功能点,子功能点,业务条件
 
-[qdrant]
-uri = http://localhost:16333
+# Language for extraction
+language = 中文
 
-[postgres]
-host = localhost
-port = 5432
-user = your_username
-password = your_password
-database = your_database
-# workspace = default
-max_connections = 12
-vector_index_type = HNSW        # HNSW or IVFFLAT
-hnsw_m = 16
-hnsw_ef = 64
-ivfflat_lists = 100
+# Number of examples to use (0-1, where 1 includes the hierarchical PRD example)
+example_number = 1
 
-[memgraph]
-uri = bolt://localhost:7687
+# Maximum number of extraction iterations
+entity_extract_max_gleaning = 3
+
+# Enable strict hierarchy validation
+strict_hierarchy = true
+
+# Strict tree structure constraints
+enforce_tree_structure = true
+prevent_same_level_connections = true
+prevent_cross_level_connections = true
+
+[VECTOR_DB]
+# Vector database configuration
+vector_db_type = nano_vectordb
+embedding_model = text-embedding-ada-002
+embedding_dim = 1536
+
+[GRAPH_DB]
+# Knowledge graph configuration
+graph_db_type = networkx
+graph_storage_path = rag_storage/graph_chunk_entity_relation.graphml
+
+# Enable hierarchical layout for tree-like visualization
+hierarchical_layout = true
+
+# Graph validation settings
+validate_hierarchy = true
+max_parent_nodes = 1
+enforce_tree_layout = true
+
+[STORAGE]
+# Storage configuration
+kv_store_type = json
+storage_path = rag_storage
+
+[PROCESSING]
+# Text processing configuration
+chunk_size = 1000
+chunk_overlap = 200
+max_tokens = 4000
+
+[VISUALIZATION]
+# Graph visualization settings
+output_format = html,graphml
+tree_layout = true
+hierarchy_colors = true
+force_directed_layout = true

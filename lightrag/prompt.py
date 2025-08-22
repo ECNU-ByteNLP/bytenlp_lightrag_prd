@@ -9,71 +9,23 @@ PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-# 默认实体类型（适用于通用场景）
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["主功能", "父功能点", "子功能点"]
-
-# PRD专用实体类型（适用于PRD文档分析）
-PROMPTS["PRD_ENTITY_TYPES"] = [
-    "主功能", 
-    "父功能点", 
-    "子功能点", 
-    "业务规则", 
-    "前置条件", 
-    "后置条件", 
-    "异常处理", 
-    "数据字段", 
-    "用户角色", 
-    "系统接口"
-]
-
-# PRD专用关系类型
-PROMPTS["PRD_RELATIONSHIP_TYPES"] = [
-    "包含关系", 
-    "依赖关系", 
-    "触发关系", 
-    "数据流向", 
-    "权限控制", 
-    "业务流程", 
-    "条件判断", 
-    "异常分支"
-]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["主功能", "父功能点", "子功能点", "业务条件"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
-# 默认实体类型描述
-ENTITY_TYPES_DESCRIPTIONS = """>>> 实体类型含义：
-- 主功能：代表系统的核心业务目标
-- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
-- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+ENTITY_TYPES_DESCRIPTIONS = """>>> 实体类型含义和层级约束：
+- 主功能：代表系统的核心业务目标，必须是图谱的根节点，只能有后继节点，不能有前驱节点
+- 父功能点：必须从属于主功能，只能有主功能作为前驱节点，只能有子功能点作为后继节点
+- 子功能点：必须从属于父功能点，只能有父功能点作为前驱节点，只能有业务条件作为后继节点
+- 业务条件：功能执行所需满足的条件，只能有子功能点作为前驱节点，不能有后继节点
+
+层级约束规则：
+1. 主功能 → 父功能点：主功能只能连接到父功能点
+2. 父功能点 → 子功能点：父功能点只能连接到子功能点
+3. 子功能点 → 业务条件：子功能点只能连接到业务条件
+4. 不允许跨层级连接：主功能不能直接连接到子功能点或业务条件
 """
 
-# PRD实体类型详细描述
-PROMPTS["PRD_ENTITY_TYPES_DESCRIPTIONS"] = """>>> PRD实体类型含义：
-- 主功能：代表系统的核心业务目标，是整个PRD文档描述的主要功能
-- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能，通常包含多个子功能点
-- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求
-- 业务规则：描述功能实现时必须遵循的业务逻辑和约束条件
-- 前置条件：功能执行前必须满足的条件或状态
-- 后置条件：功能执行完成后系统应达到的状态或结果
-- 异常处理：描述功能执行过程中可能出现的异常情况及处理方式
-- 数据字段：功能涉及的关键数据项，包括字段名称、类型、约束等
-- 用户角色：参与功能执行的各类用户角色及其权限
-- 系统接口：功能与其他系统或模块的交互接口
-"""
-
-# PRD关系类型详细描述
-PROMPTS["PRD_RELATIONSHIP_TYPES_DESCRIPTIONS"] = """>>> PRD关系类型含义：
-- 包含关系：表示功能点之间的层次结构，如父功能点包含子功能点
-- 依赖关系：表示功能点之间的依赖关系，如某个功能必须在另一个功能完成后才能执行
-- 触发关系：表示某个事件或条件触发功能执行的关系
-- 数据流向：表示数据在功能点之间的传递和流转关系
-- 权限控制：表示用户角色与功能点之间的权限关系
-- 业务流程：表示功能点之间的执行顺序和流程关系
-- 条件判断：表示功能执行的条件分支和判断逻辑
-- 异常分支：表示功能执行异常时的处理分支
-"""
-
-# 通用实体抽取prompt（保持原有格式）
 PROMPTS["entity_extraction"] = """---角色---
 你是一个测试专家，负责从需求文档中提取关键信息。
 
@@ -86,10 +38,17 @@ PROMPTS["entity_extraction"] = """---角色---
 - entity_name: 实体名称，使用与输入文本相同的语言。如果是英文，请首字母大写
 - entity_type: 以下类型之一：[{entity_types}]
 - entity_description: 基于输入文本中明确存在的信息，提供实体属性和活动的全面描述。**不要推断或虚构文本中未明确说明的信息。** 如果文本提供的信息不足以创建全面描述，请说明"文本中无可用描述"。
->>> 实体类型含义：
-- 主功能：代表系统的核心业务目标
-- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
-- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+>>> 实体类型含义和层级约束：
+- 主功能：代表系统的核心业务目标，必须是图谱的根节点，只能有后继节点，不能有前驱节点
+- 父功能点：必须从属于主功能，只能有主功能作为前驱节点，只能有子功能点作为后继节点
+- 子功能点：必须从属于父功能点，只能有父功能点作为前驱节点，只能有业务条件作为后继节点
+- 业务条件：功能执行所需满足的条件，只能有子功能点作为前驱节点，不能有后继节点
+
+层级约束规则：
+1. 主功能 → 父功能点：主功能只能连接到父功能点
+2. 父功能点 → 子功能点：父功能点只能连接到子功能点
+3. 子功能点 → 业务条件：子功能点只能连接到业务条件
+4. 不允许跨层级连接：主功能不能直接连接到子功能点或业务条件
 将每个实体格式化为 ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
 
@@ -100,6 +59,33 @@ PROMPTS["entity_extraction"] = """---角色---
 - relationship_description: 解释为什么认为源实体和目标实体相关
 - relationship_strength: 表示源实体和目标实体之间关系强度的数字分数
 - relationship_keywords: 一个或多个总结关系整体性质的高级关键词，重点关注概念或主题而非具体细节
+
+**重要：必须遵循以下层级约束规则：**
+1. 主功能 → 父功能点：主功能只能连接到父功能点，关系类型为"功能包含"
+2. 父功能点 → 子功能点：父功能点只能连接到子功能点，关系类型为"功能包含"
+3. 子功能点 → 业务条件：子功能点只能连接到业务条件，关系类型为"条件依赖"
+4. 不允许跨层级连接：主功能不能直接连接到子功能点或业务条件
+5. 不允许同层级连接：父功能点不能连接到其他父功能点，子功能点不能连接到其他子功能点
+6. 严格树状结构：每个节点只能有一个前驱节点，确保无回路
+7. 完整性要求：必须识别文档中所有提到的功能点和业务条件，不能遗漏
+
+**层级连接约束：**
+- 第1层(主功能) → 只能连接到第2层(父功能点)
+- 第2层(父功能点) → 只能连接到第3层(子功能点)
+- 第3层(子功能点) → 只能连接到第4层(业务条件)
+- 第4层(业务条件) → 不能连接到任何节点(叶子节点)
+- 禁止：同层级连接、跨层级连接、反向连接
+
+**抽取完整性要求：**
+- 仔细阅读文档，识别所有功能描述、业务流程、业务规则
+- 对于每个功能，都要找到其对应的子功能和执行条件
+- 确保所有业务条件都被识别和抽取
+- 不要遗漏任何功能模块或业务逻辑
+
+常见的关系类型包括：
+- 功能包含：描述功能间的包含关系（主功能→父功能点，父功能点→子功能点）
+- 条件依赖：描述功能对业务条件的依赖关系（子功能点→业务条件）
+
 将每个关系格式化为 ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
 
 3. 识别总结整个文本主要概念、主题或话题的高级关键词。这些应该捕捉文档中存在的总体思想。
@@ -123,67 +109,9 @@ PROMPTS["entity_extraction"] = """---角色---
 ######################
 输出:"""
 
-# PRD专用实体抽取prompt（新增）
-PROMPTS["prd_entity_extraction"] = """---角色---
-你是一个专业的PRD文档分析师，专门负责从产品需求文档中提取功能点、业务规则和系统关系。
-
----目标---
-根据提供的PRD文本文档，识别文本中所有相关的实体和关系，构建完整的功能架构图。
-使用{language}作为输出语言。
-
----步骤---
-1. 识别所有实体。对于每个识别出的实体，提取以下信息：
-- entity_name: 实体名称，使用与输入文本相同的语言
-- entity_type: 以下类型之一：[{entity_types}]
-- entity_description: 基于输入文本中明确存在的信息，提供实体属性和活动的全面描述
-- entity_priority: 实体优先级（高/中/低），基于文档中的描述判断
-- entity_complexity: 实体复杂度（简单/中等/复杂），基于功能实现的复杂程度判断
-
->>> 实体类型含义：
-{entity_types_descriptions}
-
-将每个实体格式化为 ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>{tuple_delimiter}<entity_priority>{tuple_delimiter}<entity_complexity>)
-
-2. 从步骤1识别的实体中，找出所有"明确相关"的（源实体，目标实体）对。
-对于每对相关实体，提取以下信息：
-- source_entity: 源实体名称
-- target_entity: 目标实体名称
-- relationship_type: 关系类型，从以下选择：[{relationship_types}]
-- relationship_description: 详细描述两个实体之间的关系
-- relationship_strength: 关系强度分数（1-10，10表示关系最强）
-- relationship_keywords: 关系的关键词标签
-- relationship_conditions: 关系成立的条件（如果有）
-
->>> 关系类型含义：
-{relationship_types_descriptions}
-
-将每个关系格式化为 ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_type>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>{tuple_delimiter}<relationship_conditions>)
-
-3. 识别总结整个PRD文档主要概念、主题或话题的高级关键词。
-将内容级关键词格式化为 ("content_keywords"{tuple_delimiter}<high_level_keywords>)
-
-4. 以{language}返回输出，作为步骤1和步骤2中识别的所有实体和关系的单一列表。使用**{record_delimiter}**作为列表分隔符。
-
-5. 完成后，输出 {completion_delimiter}
-
-######################
----示例---
-######################
-{examples}
-
-#############################
----实际数据---
-######################
-实体类型: [{entity_types}]
-关系类型: [{relationship_types}]
-文本:
-{input_text}
-######################
-输出:"""
-
 PROMPTS["entity_extraction_examples"] = [
     """示例 1：
-    实体类型：[主功能，父功能点，子功能点]
+    实体类型：[主功能，父功能点，子功能点，业务条件]
     文本：
     ```
     [功能需求规格说明书—退件优化]
@@ -247,17 +175,28 @@ PROMPTS["entity_extraction_examples"] = [
     ("entity"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理抵押物信息，包括设备品牌、抵押物类型、抵押物原值等字段，在特定条件下变更时会触发自动驳回。"){record_delimiter}
     ("entity"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理报价单信息，包括设备原值、风险金、保证金、借款金额、租金金额等，在变更时会触发自动驳回。"){record_delimiter}
     ("entity"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理合同基本信息字段，不同产品类型下需判断的字段不同，在变更时会触发自动驳回。"){record_delimiter}
+    ("entity"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"业务条件"{tuple_delimiter}"当担保信息、抵押物信息、报价单信息或基本信息模块中的关键字段发生变更时，系统需要判断是否触发自动驳回流程。"){record_delimiter}
+    ("entity"{tuple_delimiter}"产品类型判断"{tuple_delimiter}"业务条件"{tuple_delimiter}"不同产品类型（产品四、产品五、产品六、产品七）需要判断的合同要素字段不同，这是业务规则约束条件。"){record_delimiter}
+    ("entity"{tuple_delimiter}"自动驳回触发"{tuple_delimiter}"业务条件"{tuple_delimiter}"当满足关键字段变更条件时，系统自动触发驳回流程，将任务驳回至对应岗位。"){record_delimiter}
+    ("entity"{tuple_delimiter}"审批人置空"{tuple_delimiter}"业务条件"{tuple_delimiter}"自动驳回时，系统需要将驳回节点的审批人置空，确保流程的规范性。"){record_delimiter}
     ("relationship"{tuple_delimiter}"退件流程自动驳回"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"机器人合同审批退件是退件流程自动驳回功能的一个具体实现场景。"{tuple_delimiter}"功能包含"{tuple_delimiter}5){record_delimiter}
     ("relationship"{tuple_delimiter}"退件流程自动驳回"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"人工智能合同审批退件是退件流程自动驳回功能的一个具体实现场景。"{tuple_delimiter}"功能包含"{tuple_delimiter}5){record_delimiter}
-    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"机器人合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"机器人合同审批退件会判断抵押物信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"机器人合同审批退件会判断报价单信息模块的关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"机器人合同审批退件会判断基本信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"人工智能合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"人工智能合同审批退件会判断抵押物信息模块变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"人工智能合同审批退件会判断报价单信息模块字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"人工智能合同审批退件会判断基本信息模块不同产品类型下的关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
-    ("content_keywords"{tuple_delimiter}"退件优化,自动驳回,合同审批,担保信息,抵押物信息,报价单信息,基本信息模块,产品分类"){completion_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"机器人合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"机器人合同审批退件会判断抵押物信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"机器人合同审批退件会判断报价单信息模块的关键字段变更来决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"机器人合同审批退件会判断基本信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"人工智能合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"人工智能合同审批退件会判断抵押物信息模块变更来决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"人工智能合同审批退件会判断报价单信息模块字段变更来决定是否触发驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"人工智能合同审批退件会判断基本信息模块不同产品类型下的关键字段变更来决定是否触发自动驳回。"{tuple_delimiter}"功能包含"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"担保信息模块的变更会触发关键字段变更判断，这是自动驳回的前置条件。"{tuple_delimiter}"条件依赖"{tuple_delimiter}7){record_delimiter}
+    ("relationship"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"抵押物信息模块的变更会触发关键字段变更判断，这是自动驳回的前置条件。"{tuple_delimiter}"条件依赖"{tuple_delimiter}7){record_delimiter}
+    ("relationship"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"报价单信息模块的变更会触发关键字段变更判断，这是自动驳回的前置条件。"{tuple_delimiter}"条件依赖"{tuple_delimiter}7){record_delimiter}
+    ("relationship"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"基本信息模块的变更会触发关键字段变更判断，这是自动驳回的前置条件。"{tuple_delimiter}"条件依赖"{tuple_delimiter}7){record_delimiter}
+    ("relationship"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"产品类型判断"{tuple_delimiter}"关键字段变更判断需要结合产品类型判断来确定具体的判断逻辑。"{tuple_delimiter}"条件依赖"{tuple_delimiter}6){record_delimiter}
+    ("relationship"{tuple_delimiter}"关键字段变更判断"{tuple_delimiter}"自动驳回触发"{tuple_delimiter}"当关键字段变更判断结果为真时，系统自动触发驳回流程。"{tuple_delimiter}"条件依赖"{tuple_delimiter}8){record_delimiter}
+    ("relationship"{tuple_delimiter}"自动驳回触发"{tuple_delimiter}"审批人置空"{tuple_delimiter}"自动驳回触发时，系统需要将驳回节点的审批人置空。"{tuple_delimiter}"条件依赖"{tuple_delimiter}7){record_delimiter}
+    ("content_keywords"{tuple_delimiter}"退件优化,自动驳回,合同审批,担保信息,抵押物信息,报价单信息,基本信息模块,产品分类,业务条件,树状结构"){completion_delimiter}
     #############################"""
 ]
 
@@ -369,10 +308,24 @@ PROMPTS["entity_continue_extraction"] = """
 - entity_name: 实体名称，使用与输入文本相同的语言。如果是英文，请首字母大写
 - entity_type: 以下类型之一：[{entity_types}]
 - entity_description: 基于输入文本中明确存在的信息，提供实体属性和活动的全面描述。**不要推断或虚构文本中未明确说明的信息。** 如果文本提供的信息不足以创建全面描述，请说明"文本中无可用描述"。
->>> 实体类型含义：
-- 主功能：代表系统的核心业务目标
-- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
-- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+
+**重要：必须全面识别文档中的所有功能点和业务条件：**
+- 仔细分析每个功能描述，识别其包含的子功能
+- 识别所有业务规则、约束条件、前置条件
+- 确保每个功能都有对应的业务条件
+- 不要遗漏任何功能模块或业务逻辑
+- 对于复杂功能，要分解为多个子功能和条件
+>>> 实体类型含义和层级约束：
+- 主功能：代表系统的核心业务目标，必须是图谱的根节点，只能有后继节点，不能有前驱节点
+- 父功能点：必须从属于主功能，只能有主功能作为前驱节点，只能有子功能点作为后继节点
+- 子功能点：必须从属于父功能点，只能有父功能点作为前驱节点，只能有业务条件作为后继节点
+- 业务条件：功能执行所需满足的条件，只能有子功能点作为前驱节点，不能有后继节点
+
+层级约束规则：
+1. 主功能 → 父功能点：主功能只能连接到父功能点
+2. 父功能点 → 子功能点：父功能点只能连接到子功能点
+3. 子功能点 → 业务条件：子功能点只能连接到业务条件
+4. 不允许跨层级连接：主功能不能直接连接到子功能点或业务条件
 将每个实体格式化为 ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
 2. 从步骤1识别的实体中，找出所有“明确相关”的（源实体，目标实体）对。
@@ -382,6 +335,33 @@ PROMPTS["entity_continue_extraction"] = """
 - relationship_description: 解释为什么认为源实体和目标实体相关
 - relationship_strength: 表示源实体和目标实体之间关系强度的数字分数
 - relationship_keywords: 一个或多个总结关系整体性质的高级关键词，重点关注概念或主题而非具体细节
+
+**重要：必须遵循以下层级约束规则：**
+1. 主功能 → 父功能点：主功能只能连接到父功能点，关系类型为"功能包含"
+2. 父功能点 → 子功能点：父功能点只能连接到子功能点，关系类型为"功能包含"
+3. 子功能点 → 业务条件：子功能点只能连接到业务条件，关系类型为"条件依赖"
+4. 不允许跨层级连接：主功能不能直接连接到子功能点或业务条件
+5. 不允许同层级连接：父功能点不能连接到其他父功能点，子功能点不能连接到其他子功能点
+6. 严格树状结构：每个节点只能有一个前驱节点，确保无回路
+7. 完整性要求：必须识别文档中所有提到的功能点和业务条件，不能遗漏
+
+**层级连接约束：**
+- 第1层(主功能) → 只能连接到第2层(父功能点)
+- 第2层(父功能点) → 只能连接到第3层(子功能点)
+- 第3层(子功能点) → 只能连接到第4层(业务条件)
+- 第4层(业务条件) → 不能连接到任何节点(叶子节点)
+- 禁止：同层级连接、跨层级连接、反向连接
+
+**抽取完整性要求：**
+- 仔细阅读文档，识别所有功能描述、业务流程、业务规则
+- 对于每个功能，都要找到其对应的子功能和执行条件
+- 确保所有业务条件都被识别和抽取
+- 不要遗漏任何功能模块或业务逻辑
+
+常见的关系类型包括：
+- 功能包含：描述功能间的包含关系（主功能→父功能点，父功能点→子功能点）
+- 条件依赖：描述功能对业务条件的依赖关系（子功能点→业务条件）
+
 将每个关系格式化为 ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
 
 3. 识别总结整个文本主要概念、主题或话题的高级关键词。这些应该捕捉文档中存在的总体思想。
