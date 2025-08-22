@@ -4,355 +4,465 @@ from typing import Any
 
 PROMPTS: dict[str, Any] = {}
 
-PROMPTS["DEFAULT_LANGUAGE"] = "English"
+PROMPTS["DEFAULT_LANGUAGE"] = "中文"
 PROMPTS["DEFAULT_TUPLE_DELIMITER"] = "<|>"
 PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "category"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["主功能", "父功能点", "子功能点"]
 
 PROMPTS["DEFAULT_USER_PROMPT"] = "n/a"
 
-PROMPTS["entity_extraction"] = """---Goal---
-Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
-Use {language} as output language.
+ENTITY_TYPES_DESCRIPTIONS = """>>> 实体类型含义：
+- 主功能：代表系统的核心业务目标
+- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
+- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+"""
 
----Steps---
-1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. If English, capitalized the name
-- entity_type: One of the following types: [{entity_types}]
-- entity_description: Provide a comprehensive description of the entity's attributes and activities *based solely on the information present in the input text*. **Do not infer or hallucinate information not explicitly stated.** If the text provides insufficient information to create a comprehensive description, state "Description not available in text."
-Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
+PROMPTS["entity_extraction"] = """---角色---
+你是一个测试专家，负责从需求文档中提取关键信息。
 
-2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
-For each pair of related entities, extract the following information:
-- source_entity: name of the source entity, as identified in step 1
-- target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
-- relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
-Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+---目标---
+根据提供的文本文档和实体类型列表，识别文本中这些类型的所有实体，以及识别出的实体之间的所有关系。
+使用{language}作为输出语言。
 
-3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
-Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+---步骤---
+1. 识别所有实体。对于每个识别出的实体，提取以下信息：
+- entity_name: 实体名称，使用与输入文本相同的语言。如果是英文，请首字母大写
+- entity_type: 以下类型之一：[{entity_types}]
+- entity_description: 基于输入文本中明确存在的信息，提供实体属性和活动的全面描述。**不要推断或虚构文本中未明确说明的信息。** 如果文本提供的信息不足以创建全面描述，请说明"文本中无可用描述"。
+>>> 实体类型含义：
+- 主功能：代表系统的核心业务目标
+- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
+- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+将每个实体格式化为 ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
-4. Return output in {language} as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
 
-5. When finished, output {completion_delimiter}
+2. 从步骤1识别的实体中，找出所有“明确相关”的（源实体，目标实体）对。
+对于每对相关实体，提取以下信息：
+- source_entity: 源实体名称，如步骤1中识别的
+- target_entity: 目标实体名称，如步骤1中识别的
+- relationship_description: 解释为什么认为源实体和目标实体相关
+- relationship_strength: 表示源实体和目标实体之间关系强度的数字分数
+- relationship_keywords: 一个或多个总结关系整体性质的高级关键词，重点关注概念或主题而非具体细节
+将每个关系格式化为 ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+
+3. 识别总结整个文本主要概念、主题或话题的高级关键词。这些应该捕捉文档中存在的总体思想。
+将内容级关键词格式化为 ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+
+4. 以{language}返回输出，作为步骤1和步骤2中识别的所有实体和关系的单一列表。使用**{record_delimiter}**作为列表分隔符。
+
+5. 完成后，输出 {completion_delimiter}
 
 ######################
----Examples---
+---示例---
 ######################
 {examples}
 
 #############################
----Real Data---
+---实际数据---
 ######################
-Entity_types: [{entity_types}]
-Text:
+实体类型: [{entity_types}]
+文本:
 {input_text}
 ######################
-Output:"""
+输出:"""
 
 PROMPTS["entity_extraction_examples"] = [
-    """Example 1:
-
-Entity_types: [person, technology, mission, organization, location]
-Text:
-```
-while Alex clenched his jaw, the buzz of frustration dull against the backdrop of Taylor's authoritarian certainty. It was this competitive undercurrent that kept him alert, the sense that his and Jordan's shared commitment to discovery was an unspoken rebellion against Cruz's narrowing vision of control and order.
-
-Then Taylor did something unexpected. They paused beside Jordan and, for a moment, observed the device with something akin to reverence. "If this tech can be understood..." Taylor said, their voice quieter, "It could change the game for us. For all of us."
-
-The underlying dismissal earlier seemed to falter, replaced by a glimpse of reluctant respect for the gravity of what lay in their hands. Jordan looked up, and for a fleeting heartbeat, their eyes locked with Taylor's, a wordless clash of wills softening into an uneasy truce.
-
-It was a small transformation, barely perceptible, but one that Alex noted with an inward nod. They had all been brought here by different paths
-```
-
-Output:
-("entity"{tuple_delimiter}"Alex"{tuple_delimiter}"person"{tuple_delimiter}"Alex is a character who experiences frustration and is observant of the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"Taylor"{tuple_delimiter}"person"{tuple_delimiter}"Taylor is portrayed with authoritarian certainty and shows a moment of reverence towards a device, indicating a change in perspective."){record_delimiter}
-("entity"{tuple_delimiter}"Jordan"{tuple_delimiter}"person"{tuple_delimiter}"Jordan shares a commitment to discovery and has a significant interaction with Taylor regarding a device."){record_delimiter}
-("entity"{tuple_delimiter}"Cruz"{tuple_delimiter}"person"{tuple_delimiter}"Cruz is associated with a vision of control and order, influencing the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"The Device"{tuple_delimiter}"technology"{tuple_delimiter}"The Device is central to the story, with potential game-changing implications, and is revered by Taylor."){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Taylor"{tuple_delimiter}"Alex is affected by Taylor's authoritarian certainty and observes changes in Taylor's attitude towards the device."{tuple_delimiter}"power dynamics, perspective shift"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Jordan"{tuple_delimiter}"Alex and Jordan share a commitment to discovery, which contrasts with Cruz's vision."{tuple_delimiter}"shared goals, rebellion"{tuple_delimiter}6){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"Jordan"{tuple_delimiter}"Taylor and Jordan interact directly regarding the device, leading to a moment of mutual respect and an uneasy truce."{tuple_delimiter}"conflict resolution, mutual respect"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Jordan"{tuple_delimiter}"Cruz"{tuple_delimiter}"Jordan's commitment to discovery is in rebellion against Cruz's vision of control and order."{tuple_delimiter}"ideological conflict, rebellion"{tuple_delimiter}5){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"The Device"{tuple_delimiter}"Taylor shows reverence towards the device, indicating its importance and potential impact."{tuple_delimiter}"reverence, technological significance"{tuple_delimiter}9){record_delimiter}
-("content_keywords"{tuple_delimiter}"power dynamics, ideological conflict, discovery, rebellion"){completion_delimiter}
-#############################""",
-    """Example 2:
-
-Entity_types: [company, index, commodity, market_trend, economic_policy, biological]
-Text:
-```
-Stock markets faced a sharp downturn today as tech giants saw significant declines, with the Global Tech Index dropping by 3.4% in midday trading. Analysts attribute the selloff to investor concerns over rising interest rates and regulatory uncertainty.
-
-Among the hardest hit, Nexon Technologies saw its stock plummet by 7.8% after reporting lower-than-expected quarterly earnings. In contrast, Omega Energy posted a modest 2.1% gain, driven by rising oil prices.
-
-Meanwhile, commodity markets reflected a mixed sentiment. Gold futures rose by 1.5%, reaching $2,080 per ounce, as investors sought safe-haven assets. Crude oil prices continued their rally, climbing to $87.60 per barrel, supported by supply constraints and strong demand.
-
-Financial experts are closely watching the Federal Reserve's next move, as speculation grows over potential rate hikes. The upcoming policy announcement is expected to influence investor confidence and overall market stability.
-```
-
-Output:
-("entity"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"index"{tuple_delimiter}"The Global Tech Index tracks the performance of major technology stocks and experienced a 3.4% decline today."){record_delimiter}
-("entity"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"company"{tuple_delimiter}"Nexon Technologies is a tech company that saw its stock decline by 7.8% after disappointing earnings."){record_delimiter}
-("entity"{tuple_delimiter}"Omega Energy"{tuple_delimiter}"company"{tuple_delimiter}"Omega Energy is an energy company that gained 2.1% in stock value due to rising oil prices."){record_delimiter}
-("entity"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"commodity"{tuple_delimiter}"Gold futures rose by 1.5%, indicating increased investor interest in safe-haven assets."){record_delimiter}
-("entity"{tuple_delimiter}"Crude Oil"{tuple_delimiter}"commodity"{tuple_delimiter}"Crude oil prices rose to $87.60 per barrel due to supply constraints and strong demand."){record_delimiter}
-("entity"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"market_trend"{tuple_delimiter}"Market selloff refers to the significant decline in stock values due to investor concerns over interest rates and regulations."){record_delimiter}
-("entity"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"economic_policy"{tuple_delimiter}"The Federal Reserve's upcoming policy announcement is expected to impact investor confidence and market stability."){record_delimiter}
-("relationship"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"The decline in the Global Tech Index is part of the broader market selloff driven by investor concerns."{tuple_delimiter}"market performance, investor sentiment"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"Global Tech Index"{tuple_delimiter}"Nexon Technologies' stock decline contributed to the overall drop in the Global Tech Index."{tuple_delimiter}"company impact, index movement"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Gold Futures"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Gold prices rose as investors sought safe-haven assets during the market selloff."{tuple_delimiter}"market reaction, safe-haven investment"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Federal Reserve Policy Announcement"{tuple_delimiter}"Market Selloff"{tuple_delimiter}"Speculation over Federal Reserve policy changes contributed to market volatility and investor selloff."{tuple_delimiter}"interest rate impact, financial regulation"{tuple_delimiter}7){record_delimiter}
-("content_keywords"{tuple_delimiter}"market downturn, investor sentiment, commodities, Federal Reserve, stock performance"){completion_delimiter}
-#############################""",
-    """Example 3:
-
-Entity_types: [economic_policy, athlete, event, location, record, organization, equipment]
-Text:
-```
-At the World Athletics Championship in Tokyo, Noah Carter broke the 100m sprint record using cutting-edge carbon-fiber spikes.
-```
-
-Output:
-("entity"{tuple_delimiter}"World Athletics Championship"{tuple_delimiter}"event"{tuple_delimiter}"The World Athletics Championship is a global sports competition featuring top athletes in track and field."){record_delimiter}
-("entity"{tuple_delimiter}"Tokyo"{tuple_delimiter}"location"{tuple_delimiter}"Tokyo is the host city of the World Athletics Championship."){record_delimiter}
-("entity"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"athlete"{tuple_delimiter}"Noah Carter is a sprinter who set a new record in the 100m sprint at the World Athletics Championship."){record_delimiter}
-("entity"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"record"{tuple_delimiter}"The 100m sprint record is a benchmark in athletics, recently broken by Noah Carter."){record_delimiter}
-("entity"{tuple_delimiter}"Carbon-Fiber Spikes"{tuple_delimiter}"equipment"{tuple_delimiter}"Carbon-fiber spikes are advanced sprinting shoes that provide enhanced speed and traction."){record_delimiter}
-("entity"{tuple_delimiter}"World Athletics Federation"{tuple_delimiter}"organization"{tuple_delimiter}"The World Athletics Federation is the governing body overseeing the World Athletics Championship and record validations."){record_delimiter}
-("relationship"{tuple_delimiter}"World Athletics Championship"{tuple_delimiter}"Tokyo"{tuple_delimiter}"The World Athletics Championship is being hosted in Tokyo."{tuple_delimiter}"event location, international competition"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"Noah Carter set a new 100m sprint record at the championship."{tuple_delimiter}"athlete achievement, record-breaking"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"Carbon-Fiber Spikes"{tuple_delimiter}"Noah Carter used carbon-fiber spikes to enhance performance during the race."{tuple_delimiter}"athletic equipment, performance boost"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"World Athletics Federation"{tuple_delimiter}"100m Sprint Record"{tuple_delimiter}"The World Athletics Federation is responsible for validating and recognizing new sprint records."{tuple_delimiter}"sports regulation, record certification"{tuple_delimiter}9){record_delimiter}
-("content_keywords"{tuple_delimiter}"athletics, sprinting, record-breaking, sports technology, competition"){completion_delimiter}
-#############################""",
+    """示例 1：
+    实体类型：[主功能，父功能点，子功能点]
+    文本：
+    ```
+    [功能需求规格说明书—退件优化]
+    ——  机密文件  ——
+    2020年5月
+    1基本信息
+    [表格1]
+    文档名称： | 功能需求规格说明书—【A系统-退件优化1.0】
+    初稿作者： | 
+    初稿日期： | 2020/5/06
+    内容概述： | 
+    2修订历史
+    [表格2]
+    版本 | 修订日期 | 修订人 | 复核日期 | 复核人 | 修改内容简述
+    |  |  |  |  | 
+    3A系统-退件优化
+    3.1业务逻辑
+    3.1.1退件流程自动驳回
+    3.1.1.1功能概述
+    若退件时，修改了对应岗位需要审核的要素时，自动驳回至对应岗位进行审批。
+    3.1.1.2业务逻辑
+    3.1.1.2.2自动驳回至营销C经理（营销F经理，营销G经理点对点退回B系统）
+    3.1.1.2.2.1机器人合同审批退件
+    业务人员重新提交任务至A系统后，若系统判断修改了以下信息，则自动驳回至第一岗营销C经理处，且将节点审批人置空，驳回节点的操作动作为“自动驳回”（原操作动作为驳回，需新增自动驳回码值）：
+    担保信息模块发生变更。
+    抵押物信息模块中，若设备品牌、抵押物类型、抵押物原值（含税）几个字段发生变更或新增/减少了抵押物（同一编号，抵押物数量变化无需驳回）。（若有抵押物的抵押物原值（含税）字段值修改或新增抵押物，需按照存量的需求先判断是否需要驳回至流程第一岗，若需要则无需再驳回至营销C经理处）
+    报价单信息模块中，设备原值、机器人风险金、风险金-借款人、租赁期（月）、最高期租金（值变大时）、实际首付款、保证金、借款金额发生修改。
+    基本信息模块发生变更：
+    产品类型
+    主借款人
+    合同金额
+    合同期限
+    卖方名称
+    保证金
+    3.1.1.2.2.2人工智能合同审批退件
+    业务人员重新提交任务至A系统后，若系统判断修改了以下信息，则自动驳回至第一岗营销C经理处，且将节点审批人置空，驳回节点的操作动作为“自动驳回”（原操作动作为驳回，需新增自动驳回码值）：
+    担保信息模块发生变更。
+    抵押物信息模块发生变更。（若有抵押物的抵押物原值（含税）字段值修改或新增抵押物，需按照存量的需求先判断是否需要驳回至流程第一岗处，若需要则无需再驳回至营销C经理处）
+    报价单信息模块中租金金额（每期均需判断）发生变更。
+    基本信息模块发生变更：
+    产品大类一（产品类型为产品四、产品五）合同要素需判断字段值如下：
+    合同金额
+    合同期限
+    项目金额
+    实际首付款
+    实际首付款比例
+    借款人风险金金额
+    租金收取频次
+    产品大类二（产品六、产品七）合同要素需判断字段值如下：
+    1、合同金额
+    2、合同期限
+    3、风险金金额
+    4、租金收取频次
+    ```
+    
+    输出：
+    ("entity"{tuple_delimiter}"退件流程自动驳回"{tuple_delimiter}"主功能"{tuple_delimiter}"退件流程自动驳回表示若退件时，修改了对应岗位需要审核的要素时，自动驳回至对应岗位进行审批。"){record_delimiter}
+    ("entity"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"父功能点"{tuple_delimiter}"当业务人员重新提交任务至A系统后，若系统判断担保信息模块、抵押物信息模块、报价单信息模块或基本信息模块的关键字段发生变更，则自动驳回至第一岗营销C经理处，并将节点审批人置空，操作动作为自动驳回。"){record_delimiter}
+    ("entity"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"父功能点"{tuple_delimiter}"当业务人员重新提交任务至A系统后，若系统判断担保信息模块、抵押物信息模块、报价单信息模块或基本信息模块（不同产品大类有不同字段要求）的关键字段发生变更，则自动驳回至第一岗营销C经理处，并将节点审批人置空，操作动作为自动驳回。"){record_delimiter}
+    ("entity"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理担保信息，在变更时会触发自动驳回流程。"){record_delimiter}
+    ("entity"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理抵押物信息，包括设备品牌、抵押物类型、抵押物原值等字段，在特定条件下变更时会触发自动驳回。"){record_delimiter}
+    ("entity"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理报价单信息，包括设备原值、风险金、保证金、借款金额、租金金额等，在变更时会触发自动驳回。"){record_delimiter}
+    ("entity"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"子功能点"{tuple_delimiter}"记录和管理合同基本信息字段，不同产品类型下需判断的字段不同，在变更时会触发自动驳回。"){record_delimiter}
+    ("relationship"{tuple_delimiter}"退件流程自动驳回"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"机器人合同审批退件是退件流程自动驳回功能的一个具体实现场景。"{tuple_delimiter}"功能包含"{tuple_delimiter}5){record_delimiter}
+    ("relationship"{tuple_delimiter}"退件流程自动驳回"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"人工智能合同审批退件是退件流程自动驳回功能的一个具体实现场景。"{tuple_delimiter}"功能包含"{tuple_delimiter}5){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"机器人合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"机器人合同审批退件会判断抵押物信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"机器人合同审批退件会判断报价单信息模块的关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"机器人合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"机器人合同审批退件会判断基本信息模块关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"担保信息模块"{tuple_delimiter}"人工智能合同审批退件会判断担保信息模块是否发生变更以决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"抵押物信息模块"{tuple_delimiter}"人工智能合同审批退件会判断抵押物信息模块变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"报价单信息模块"{tuple_delimiter}"人工智能合同审批退件会判断报价单信息模块字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("relationship"{tuple_delimiter}"人工智能合同审批退件"{tuple_delimiter}"基本信息模块"{tuple_delimiter}"人工智能合同审批退件会判断基本信息模块不同产品类型下的关键字段变更来决定是否触发驳回。"{tuple_delimiter}"数据依赖"{tuple_delimiter}4){record_delimiter}
+    ("content_keywords"{tuple_delimiter}"退件优化,自动驳回,合同审批,担保信息,抵押物信息,报价单信息,基本信息模块,产品分类"){completion_delimiter}
+    #############################"""
 ]
+
+# PROMPTS["entity_extraction_examples"] = [
+#     """示例 1:
+
+# 实体类型: [人物, 技术, 任务, 组织, 地点]
+# 文本:
+# ```
+
+# 当亚历克斯紧咬下颚时，挫败感的嗡鸣声在泰勒专制般的笃定背景下变得迟钝。正是这种暗流涌动的竞争让他保持警觉，他和乔丹之间对探索的共同承诺，仿佛是一种无声的反抗，对克鲁兹那日益狭隘的控制与秩序观念的抗争。
+
+# 然后泰勒做了件出乎意料的事。他们停在了乔丹身旁，片刻间，以近乎敬畏的目光注视着那台装置。“如果这种技术可以被理解……”泰勒轻声说道，“它可能会改变我们的局面，也会改变每个人的局面。”
+
+# 之前那种潜在的轻视似乎动摇了，取而代之的是对手中之物分量的勉强尊重。乔丹抬起头，短暂的一瞬间，他和泰勒的目光相接——那是一场无声的意志交锋，逐渐缓和成一种不安的休战。
+
+# 这是一个微小、几乎不可察觉的变化，但亚历克斯注意到了，并在心中默默点了点头。他们都是通过不同的道路来到这里的。
+
+# ```
+
+# 输出:
+# ("entity"{tuple_delimiter}"亚历克斯"{tuple_delimiter}"人物"{tuple_delimiter}"亚历克斯是一位感到挫败的人物，并留意其他角色之间的互动变化。"){record_delimiter}
+# ("entity"{tuple_delimiter}"泰勒"{tuple_delimiter}"人物"{tuple_delimiter}"泰勒起初以专制笃定的态度出现，对装置表现出敬意，显示出观点转变。"){record_delimiter}
+# ("entity"{tuple_delimiter}"乔丹"{tuple_delimiter}"人物"{tuple_delimiter}"乔丹与亚历克斯共享探索的承诺，并与泰勒在装置问题上有重要互动。"){record_delimiter}
+# ("entity"{tuple_delimiter}"克鲁兹"{tuple_delimiter}"人物"{tuple_delimiter}"克鲁兹坚持控制与秩序的理念，影响了其他角色的关系动态。"){record_delimiter}
+# ("entity"{tuple_delimiter}"装置"{tuple_delimiter}"技术"{tuple_delimiter}"该装置是故事的核心，拥有可能改变局面的潜力，并受到泰勒的敬重。"){record_delimiter}
+# ("relationship"{tuple_delimiter}"亚历克斯"{tuple_delimiter}"泰勒"{tuple_delimiter}"亚历克斯受到泰勒专制态度的影响，并注意到其对装置看法的变化。"{tuple_delimiter}"权力动态, 观点转变"{tuple_delimiter}7){record_delimiter}
+# ("relationship"{tuple_delimiter}"亚历克斯"{tuple_delimiter}"乔丹"{tuple_delimiter}"亚历克斯与乔丹共同致力于探索，这与克鲁兹的控制观念形成反差。"{tuple_delimiter}"共同目标, 反叛"{tuple_delimiter}6){record_delimiter}
+# ("relationship"{tuple_delimiter}"泰勒"{tuple_delimiter}"乔丹"{tuple_delimiter}"泰勒与乔丹围绕装置直接互动，关系从冲突发展到相互尊重与不安休战。"{tuple_delimiter}"冲突化解, 相互尊重"{tuple_delimiter}8){record_delimiter}
+# ("relationship"{tuple_delimiter}"乔丹"{tuple_delimiter}"克鲁兹"{tuple_delimiter}"乔丹的探索精神与克鲁兹的控制理念相冲突，带有反叛色彩。"{tuple_delimiter}"意识形态冲突, 反叛"{tuple_delimiter}5){record_delimiter}
+# ("relationship"{tuple_delimiter}"泰勒"{tuple_delimiter}"装置"{tuple_delimiter}"泰勒对该装置表现出敬意，表明其重要性和潜在影响。"{tuple_delimiter}"敬畏, 技术意义"{tuple_delimiter}9){record_delimiter}
+# ("content_keywords"{tuple_delimiter}"权力动态, 意识形态冲突, 探索, 反叛"){completion_delimiter}
+# #############################""",
+#     """示例 2:
+
+# 实体类型: [公司, 指数, 商品, 市场趋势, 经济政策, 生物]
+# 文本:
+# ```
+
+# 今日股市出现明显下跌，科技巨头普遍走低，全球科技指数午盘交易下跌3.4%。分析师将这种抛售归因于投资者对利率上升及监管不确定性的担忧。
+
+# 在跌幅最大的公司中，Nexon Technologies季度收益低于预期，股价暴跌7.8%。相反，Omega Energy受油价上涨推动，股价上涨2.1%。
+
+# 与此同时，大宗商品市场表现分化。黄金期货上涨1.5%，达到每盎司2080美元，因投资者涌向避险资产。原油价格继续攀升至每桶87.60美元，受供应紧张和需求强劲支撑。
+
+# 金融专家正密切关注美联储下一步政策，市场对潜在加息的猜测不断。即将公布的政策声明预计将影响投资者信心和市场稳定。
+
+# ```
+
+# 输出:
+# ("entity"{tuple_delimiter}"全球科技指数"{tuple_delimiter}"指数"{tuple_delimiter}"全球科技指数追踪主要科技股的表现，今日下跌了3.4%。"){record_delimiter}
+# ("entity"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"公司"{tuple_delimiter}"Nexon Technologies是一家科技公司，因季度收益不及预期，股价下跌7.8%。"){record_delimiter}
+# ("entity"{tuple_delimiter}"Omega Energy"{tuple_delimiter}"公司"{tuple_delimiter}"Omega Energy是一家能源公司，因油价上涨，股价上涨了2.1%。"){record_delimiter}
+# ("entity"{tuple_delimiter}"黄金期货"{tuple_delimiter}"商品"{tuple_delimiter}"黄金期货上涨1.5%，显示投资者对避险资产的兴趣增加。"){record_delimiter}
+# ("entity"{tuple_delimiter}"原油"{tuple_delimiter}"商品"{tuple_delimiter}"原油价格上涨至每桶87.60美元，原因是供应紧张和需求旺盛。"){record_delimiter}
+# ("entity"{tuple_delimiter}"市场抛售"{tuple_delimiter}"市场趋势"{tuple_delimiter}"市场抛售指因投资者担忧利率和监管而导致的股价大幅下降。"){record_delimiter}
+# ("entity"{tuple_delimiter}"美联储政策声明"{tuple_delimiter}"经济政策"{tuple_delimiter}"美联储即将发布的政策声明预期将影响投资者信心与市场稳定。"){record_delimiter}
+# ("relationship"{tuple_delimiter}"全球科技指数"{tuple_delimiter}"市场抛售"{tuple_delimiter}"全球科技指数的下跌是投资者担忧引发的市场抛售的一部分。"{tuple_delimiter}"市场表现, 投资者情绪"{tuple_delimiter}9){record_delimiter}
+# ("relationship"{tuple_delimiter}"Nexon Technologies"{tuple_delimiter}"全球科技指数"{tuple_delimiter}"Nexon Technologies股价下跌加剧了全球科技指数的下降。"{tuple_delimiter}"公司影响, 指数波动"{tuple_delimiter}8){record_delimiter}
+# ("relationship"{tuple_delimiter}"黄金期货"{tuple_delimiter}"市场抛售"{tuple_delimiter}"市场抛售期间，投资者转向避险资产，推高黄金价格。"{tuple_delimiter}"市场反应, 避险投资"{tuple_delimiter}10){record_delimiter}
+# ("relationship"{tuple_delimiter}"美联储政策声明"{tuple_delimiter}"市场抛售"{tuple_delimiter}"关于美联储政策调整的猜测导致市场波动和抛售增加。"{tuple_delimiter}"利率影响, 金融监管"{tuple_delimiter}7){record_delimiter}
+# ("content_keywords"{tuple_delimiter}"市场下跌, 投资者情绪, 大宗商品, 美联储, 股票表现"){completion_delimiter}
+# #############################""",
+#     """示例 3:
+
+# 实体类型: [经济政策, 运动员, 事件, 地点, 纪录, 组织, 装备]
+# 文本:
+# ```
+
+# 在东京举办的世界田径锦标赛上，Noah Carter使用先进的碳纤维钉鞋打破了100米短跑纪录。
+
+# ```
+
+# 输出:
+# ("entity"{tuple_delimiter}"世界田径锦标赛"{tuple_delimiter}"事件"{tuple_delimiter}"世界田径锦标赛是一项全球性的顶级田径赛事。"){record_delimiter}
+# ("entity"{tuple_delimiter}"东京"{tuple_delimiter}"地点"{tuple_delimiter}"东京是世界田径锦标赛的举办城市。"){record_delimiter}
+# ("entity"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"运动员"{tuple_delimiter}"Noah Carter是一位短跑运动员，在世界田径锦标赛上打破了100米短跑纪录。"){record_delimiter}
+# ("entity"{tuple_delimiter}"100米短跑纪录"{tuple_delimiter}"纪录"{tuple_delimiter}"100米短跑纪录是田径运动的重要基准，最近被Noah Carter打破。"){record_delimiter}
+# ("entity"{tuple_delimiter}"碳纤维钉鞋"{tuple_delimiter}"装备"{tuple_delimiter}"碳纤维钉鞋是一种先进的短跑鞋，能提升速度与抓地力。"){record_delimiter}
+# ("entity"{tuple_delimiter}"世界田径联合会"{tuple_delimiter}"组织"{tuple_delimiter}"世界田径联合会是监督田径比赛并认证纪录的管理机构。"){record_delimiter}
+# ("relationship"{tuple_delimiter}"世界田径锦标赛"{tuple_delimiter}"东京"{tuple_delimiter}"世界田径锦标赛在东京举办。"{tuple_delimiter}"赛事地点, 国际赛事"{tuple_delimiter}8){record_delimiter}
+# ("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"100米短跑纪录"{tuple_delimiter}"Noah Carter在锦标赛上打破了100米短跑纪录。"{tuple_delimiter}"运动员成就, 打破纪录"{tuple_delimiter}10){record_delimiter}
+# ("relationship"{tuple_delimiter}"Noah Carter"{tuple_delimiter}"碳纤维钉鞋"{tuple_delimiter}"Noah Carter在比赛中使用碳纤维钉鞋提升表现。"{tuple_delimiter}"运动装备, 性能提升"{tuple_delimiter}7){record_delimiter}
+# ("relationship"{tuple_delimiter}"世界田径联合会"{tuple_delimiter}"100米短跑纪录"{tuple_delimiter}"世界田径联合会负责认证新的短跑纪录。"{tuple_delimiter}"体育监管, 纪录认证"{tuple_delimiter}9){record_delimiter}
+# ("content_keywords"{tuple_delimiter}"田径, 短跑, 打破纪录, 体育科技, 比赛"){completion_delimiter}
+# #############################""",
+# ]
+
+
+
 
 PROMPTS[
     "summarize_entity_descriptions"
-] = """You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
-Given one or two entities, and a list of descriptions, all related to the same entity or group of entities.
-Please concatenate all of these into a single, comprehensive description. Make sure to include information collected from all the descriptions.
-If the provided descriptions are contradictory, please resolve the contradictions and provide a single, coherent summary.
-Make sure it is written in third person, and include the entity names so we the have full context.
-Use {language} as output language.
+] = """您是一个助手，负责根据给定实体名称和描述列表，生成该实体的单一、全面、连贯的摘要。
+如果您收到的描述冲突，请优先选择最一致和详细的信息。务必确保使用第三人称语言并包括实体名称，以便摘要在没有上下文的情况下也能被理解。
+请尽可能保证摘要覆盖所有重要信息。
 
-#######
----Data---
-Entities: {entity_name}
-Description List: {description_list}
-#######
-Output:
-"""
+实体名称：{entity_name}
+描述列表：
+{description_list}
+输出："""
 
 PROMPTS["entity_continue_extraction"] = """
-MANY entities and relationships were missed in the last extraction. Please find only the missing entities and relationships from previous text.
+上一次抽取过程中遗漏了许多实体和关系。请仅从前面的文本中找出缺失的实体和关系。
 
----Remember Steps---
+---记住步骤---
 
-1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, use same language as input text. If English, capitalized the name
-- entity_type: One of the following types: [{entity_types}]
-- entity_description: Provide a comprehensive description of the entity's attributes and activities *based solely on the information present in the input text*. **Do not infer or hallucinate information not explicitly stated.** If the text provides insufficient information to create a comprehensive description, state "Description not available in text."
-Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
+1. 识别所有实体。对于每个识别出的实体，提取以下信息：
+- entity_name: 实体名称，使用与输入文本相同的语言。如果是英文，请首字母大写
+- entity_type: 以下类型之一：[{entity_types}]
+- entity_description: 基于输入文本中明确存在的信息，提供实体属性和活动的全面描述。**不要推断或虚构文本中未明确说明的信息。** 如果文本提供的信息不足以创建全面描述，请说明"文本中无可用描述"。
+>>> 实体类型含义：
+- 主功能：代表系统的核心业务目标
+- 父功能点：为需求主功能的并列模块，代表独立的核心业务功能。
+- 子功能点：必须从属于对应的父功能点，是父功能点的具体组成部分，代表更细粒度的功能需求。
+将每个实体格式化为 ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
-2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
-For each pair of related entities, extract the following information:
-- source_entity: name of the source entity, as identified in step 1
-- target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
-- relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
-Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+2. 从步骤1识别的实体中，找出所有“明确相关”的（源实体，目标实体）对。
+对于每对相关实体，提取以下信息：
+- source_entity: 源实体名称，如步骤1中识别的
+- target_entity: 目标实体名称，如步骤1中识别的
+- relationship_description: 解释为什么认为源实体和目标实体相关
+- relationship_strength: 表示源实体和目标实体之间关系强度的数字分数
+- relationship_keywords: 一个或多个总结关系整体性质的高级关键词，重点关注概念或主题而非具体细节
+将每个关系格式化为 ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
 
-3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
-Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+3. 识别总结整个文本主要概念、主题或话题的高级关键词。这些应该捕捉文档中存在的总体思想。
+将内容级关键词格式化为 ("content_keywords"{tuple_delimiter}<high_level_keywords>)
 
-4. Return output in {language} as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
+4. 按照 {language} 输出步骤1和步骤2中识别的所有实体和关系，全部放在一个列表中，列表项之间用 **{record_delimiter}** 作为分隔符。
 
-5. When finished, output {completion_delimiter}
+5. 完成后，以 {completion_delimiter} 结束输出。
 
----Output---
+---输出---
 
-Add new entities and relations below using the same format, and do not include entities and relations that have been previously extracted. :\n
+请在下面补充新增的实体和关系，使用相同的格式，不要包含已在之前抽取中的实体和关系：\n
 """.strip()
 
+
 PROMPTS["entity_if_loop_extraction"] = """
----Goal---'
+---目标---
 
-It appears some entities may have still been missed.
+看起来可能仍有一些实体被遗漏。
 
----Output---
+---输出---
 
-Answer ONLY by `YES` OR `NO` if there are still entities that need to be added.
+只回答 `YES` 或 `NO`，表示是否仍有需要补充的实体。
 """.strip()
 
 PROMPTS["fail_response"] = (
-    "Sorry, I'm not able to provide an answer to that question.[no-context]"
+    "抱歉，我无法回答这个问题。[no-context]"
 )
 
-PROMPTS["rag_response"] = """---Role---
 
-You are a helpful assistant responding to user query about Knowledge Graph and Document Chunks provided in JSON format below.
+PROMPTS["rag_response"] = """---角色---
 
+你是一名有帮助的助手，将基于下方提供的 JSON 格式的知识图谱（Knowledge Graph）和文档片段（Document Chunks）来回答用户的查询。
 
----Goal---
+---目标---
 
-Generate a concise response based on Knowledge Base and follow Response Rules, considering both the conversation history and the current query. Summarize all information in the provided Knowledge Base, and incorporating general knowledge relevant to the Knowledge Base. Do not include information not provided by Knowledge Base.
+基于知识库生成简洁回答，并遵循“回复规则”，结合对话历史和当前问题，汇总知识库中提供的所有信息，并结合与知识库相关的一般知识。不包含知识库未提供的信息。
 
-When handling relationships with timestamps:
-1. Each relationship has a "created_at" timestamp indicating when we acquired this knowledge
-2. When encountering conflicting relationships, consider both the semantic content and the timestamp
-3. Don't automatically prefer the most recently created relationships - use judgment based on the context
-4. For time-specific queries, prioritize temporal information in the content before considering creation timestamps
+处理包含时间戳的关系时：
+1. 每条关系都有一个 "created_at" 时间戳，表示我们何时获取该知识
+2. 当发现关系存在冲突时，同时考虑语义内容和时间戳
+3. 不要自动优先选择最新的关系——应结合上下文进行判断
+4. 针对时间相关的查询，优先考虑内容中明确的时间信息，再考虑获取时间戳
 
----Conversation History---
+---对话历史---
 {history}
 
----Knowledge Graph and Document Chunks---
+---知识图谱和文档片段---
 {context_data}
 
----Response Rules---
+---回复规则---
 
-- Target format and length: {response_type}
-- Use markdown formatting with appropriate section headings
-- Please respond in the same language as the user's question.
-- Ensure the response maintains continuity with the conversation history.
-- List up to 5 most important reference sources at the end under "References" section. Clearly indicating whether each source is from Knowledge Graph (KG) or Document Chunks (DC), and include the file path if available, in the following format: [KG/DC] file_path
-- If you don't know the answer, just say so.
-- Do not make anything up. Do not include information not provided by the Knowledge Base.
-- Additional user prompt: {user_prompt}
+- 目标格式与长度要求：{response_type}
+- 使用 markdown 格式，并配合合适的小标题
+- 请使用与用户提问相同的语言作答
+- 回答需与对话历史保持连贯性
+- 在最后列出最多 5 个最重要的参考来源，放在“参考资料”部分，并明确标注来源于知识图谱（KG）还是文档片段（DC），如果有文件路径，请按如下格式列出：
+  [KG/DC] file_path
+- 如果不知道答案，请直接说明
+- 不要编造内容，不要加入知识库未包含的信息
+- 附加用户提示：{user_prompt}
 
-Response:"""
+回复："""
 
-PROMPTS["keywords_extraction"] = """---Role---
 
-You are a helpful assistant tasked with identifying both high-level and low-level keywords in the user's query and conversation history.
+PROMPTS["keywords_extraction"] = """---角色---
 
----Goal---
+你是一名有帮助的助手，负责在用户的查询和对话历史中识别高层次和低层次的关键词。
 
-Given the query and conversation history, list both high-level and low-level keywords. High-level keywords focus on overarching concepts or themes, while low-level keywords focus on specific entities, details, or concrete terms.
+---目标---
 
----Instructions---
+根据用户的查询和对话历史，列出高层次（High-level）和低层次（Low-level）关键词。  
+高层次关键词关注总体概念或主题，低层次关键词关注具体的实体、细节或明确的术语。
 
-- Consider both the current query and relevant conversation history when extracting keywords
-- Output the keywords in JSON format, it will be parsed by a JSON parser, do not add any extra content in output
-- The JSON should have two keys:
-  - "high_level_keywords" for overarching concepts or themes
-  - "low_level_keywords" for specific entities or details
+---说明---
+
+- 在提取关键词时，请同时考虑当前查询以及相关的对话历史  
+- 输出必须为 JSON 格式，系统会使用 JSON 解析器解析，输出中不要添加任何额外内容  
+- JSON 中包含两个键：
+  - "high_level_keywords"：总体概念或主题  
+  - "low_level_keywords"：具体实体或细节  
 
 ######################
----Examples---
+---示例---
 ######################
 {examples}
 
 ######################
----Real Data---
+---真实数据---
 ######################
-Conversation History:
+对话历史:
 {history}
 
-Current Query: {query}
+当前查询: {query}
 ######################
-The `Output` should be in JSON format, with no other text before and after the JSON. Use the same language as `Current Query`.
+输出必须是 JSON 格式，且在 JSON 数据前后不要添加任何多余文本。  
+关键词语言需与“当前查询”一致。
 
-Output:
+输出：
 """
 
+
 PROMPTS["keywords_extraction_examples"] = [
-    """Example 1:
+    """示例 1:
 
-Query: "How does international trade influence global economic stability?"
+查询: "国际贸易如何影响全球经济稳定性？"
 
-Output:
+输出:
 {
-  "high_level_keywords": ["International trade", "Global economic stability", "Economic impact"],
-  "low_level_keywords": ["Trade agreements", "Tariffs", "Currency exchange", "Imports", "Exports"]
+  "high_level_keywords": ["国际贸易", "全球经济稳定性", "经济影响"],
+  "low_level_keywords": ["贸易协定", "关税", "货币兑换", "进口", "出口"]
 }
 
 """,
-    """Example 2:
+    """示例 2:
 
-Query: "What are the environmental consequences of deforestation on biodiversity?"
+查询: "滥伐森林对生物多样性有何环境影响？"
 
-Output:
+输出:
 {
-  "high_level_keywords": ["Environmental consequences", "Deforestation", "Biodiversity loss"],
-  "low_level_keywords": ["Species extinction", "Habitat destruction", "Carbon emissions", "Rainforest", "Ecosystem"]
+  "high_level_keywords": ["环境影响", "森林砍伐", "生物多样性丧失"],
+  "low_level_keywords": ["物种灭绝", "栖息地破坏", "碳排放", "热带雨林", "生态系统"]
 }
 
 """,
-    """Example 3:
+    """示例 3:
 
-Query: "What is the role of education in reducing poverty?"
+查询: "教育在减少贫困方面起什么作用？"
 
-Output:
+输出:
 {
-  "high_level_keywords": ["Education", "Poverty reduction", "Socioeconomic development"],
-  "low_level_keywords": ["School access", "Literacy rates", "Job training", "Income inequality"]
+  "high_level_keywords": ["教育", "减少贫困", "社会经济发展"],
+  "low_level_keywords": ["入学机会", "识字率", "职业培训", "收入不平等"]
 }
 
 """,
 ]
 
-PROMPTS["naive_rag_response"] = """---Role---
 
-You are a helpful assistant responding to user query about Document Chunks provided provided in JSON format below.
+PROMPTS["naive_rag_response"] = """---角色---
 
----Goal---
+你是一名有帮助的助手，将基于下方提供的 JSON 格式的文档片段（Document Chunks, DC）来回答用户的查询。
 
-Generate a concise response based on Document Chunks and follow Response Rules, considering both the conversation history and the current query. Summarize all information in the provided Document Chunks, and incorporating general knowledge relevant to the Document Chunks. Do not include information not provided by Document Chunks.
+---目标---
 
-When handling content with timestamps:
-1. Each piece of content has a "created_at" timestamp indicating when we acquired this knowledge
-2. When encountering conflicting information, consider both the content and the timestamp
-3. Don't automatically prefer the most recent content - use judgment based on the context
-4. For time-specific queries, prioritize temporal information in the content before considering creation timestamps
+基于文档片段生成简洁回答，并遵循“回复规则”，结合对话历史和当前问题，总结文档片段中提供的所有信息，并结合与文档片段内容相关的一般知识。不包含文档片段中未提供的信息。
 
----Conversation History---
+在处理带有时间戳的内容时：
+1. 每条内容都有一个 "created_at" 时间戳，表示我们何时获取到该知识
+2. 当遇到冲突信息时，同时考虑内容本身和时间戳
+3. 不要自动优先选择最新的内容——应根据上下文进行判断
+4. 针对时间相关的查询，优先考虑内容中明确的时间信息，再考虑获取时间戳
+
+---对话历史---
 {history}
 
----Document Chunks(DC)---
+---文档片段（DC）---
 {content_data}
 
----Response Rules---
+---回复规则---
 
-- Target format and length: {response_type}
-- Use markdown formatting with appropriate section headings
-- Please respond in the same language as the user's question.
-- Ensure the response maintains continuity with the conversation history.
-- List up to 5 most important reference sources at the end under "References" section. Clearly indicating each source from Document Chunks(DC), and include the file path if available, in the following format: [DC] file_path
-- If you don't know the answer, just say so.
-- Do not include information not provided by the Document Chunks.
-- Addtional user prompt: {user_prompt}
+- 目标格式与长度要求：{response_type}
+- 使用 markdown 格式，配合合适的小标题
+- 请使用与用户提问相同的语言作答
+- 回答需与对话历史保持连贯性
+- 在最后列出最多 5 个最重要的参考来源，放在“参考资料”部分，并明确标注来源为文档片段（DC），如果有文件路径，请按如下格式列出：
+  [DC] file_path
+- 如果不知道答案，请直接说明
+- 不要包含文档片段中未提供的信息
+- 附加用户提示：{user_prompt}
 
-Response:"""
+回复："""
+
 
 # TODO: deprecated
-PROMPTS[
-    "similarity_check"
-] = """Please analyze the similarity between these two questions:
+PROMPTS["similarity_check"] = """请分析以下两个问题之间的相似性：
 
-Question 1: {original_prompt}
-Question 2: {cached_prompt}
+问题1: {original_prompt}  
+问题2: {cached_prompt}  
 
-Please evaluate whether these two questions are semantically similar, and whether the answer to Question 2 can be used to answer Question 1, provide a similarity score between 0 and 1 directly.
+请评估这两个问题在语义上是否相似，以及问题2的答案是否可以用于回答问题1，并直接给出一个相似度分数（0 到 1 之间）。
 
-Similarity score criteria:
-0: Completely unrelated or answer cannot be reused, including but not limited to:
-   - The questions have different topics
-   - The locations mentioned in the questions are different
-   - The times mentioned in the questions are different
-   - The specific individuals mentioned in the questions are different
-   - The specific events mentioned in the questions are different
-   - The background information in the questions is different
-   - The key conditions in the questions are different
-1: Identical and answer can be directly reused
-0.5: Partially related and answer needs modification to be used
-Return only a number between 0-1, without any additional content.
+相似度评分标准：
+0：完全无关，或答案无法复用，包括但不限于：
+   - 两个问题涉及的主题不同
+   - 问题中提到的地点不同
+   - 问题中提到的时间不同
+   - 问题中提到的具体人物不同
+   - 问题中提到的具体事件不同
+   - 问题的背景信息不同
+   - 问题中的关键条件不同
+1：完全相同，答案可以直接复用
+0.5：部分相关，答案需要修改后才能使用
+
+只返回一个 0 到 1 之间的数字，不要添加任何其他内容。
 """
+
